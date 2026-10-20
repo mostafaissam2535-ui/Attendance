@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تسجيل الحضور</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: Tahoma, Arial, sans-serif; background: #f2f5fa;
+    display: flex; justify-content: center; padding: 20px;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #fff; border-radius: 16px;
+    padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.1); text-align: center;
+  }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  p.sub { color: #666; margin: 0 0 20px; font-size: 16px; }
+  select, button { width: 100%; font-size: 22px; padding: 16px; border-radius: 12px; }
+  select { border: 2px solid #c5cfe0; margin-bottom: 16px; background: #fff; }
+  button { border: 0; background: #1a7f37; color: #fff; font-weight: bold; }
+  button:disabled { background: #9bb; }
+  #msg { margin-top: 20px; font-size: 20px; line-height: 1.7; min-height: 30px; }
+  .ok { color: #1a7f37; } .err { color: #c0392b; } .wait { color: #555; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>تسجيل الحضور</h1>
+  <p class="sub">اختار اسمك واضغط الزرار</p>
+  <select id="name"><option value="">— اختار اسمك —</option></select>
+  <button id="btn">سجّل حضوري</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+// ===== عدّل السطرين دول بس =====
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx9XviRNNX2AVYryME1DIqfPCkhTDJCXETukjLZrUI7MqjsVaHxqpq9Z5Yx6uNoHjzXJg/exec';
+const TOKEN = 'Mostafa@2535';   // لازم تطابق TOKEN اللي في سكريبت جوجل
+// ================================
+
+const NAMES = [
+  'اسماعيل','ابوزيد','رضا','حسن','ام احمد','احمد','عمر',
+  'عمران','سباعي','رمضان','انس','مصطفى','محمود','مجدي',
+  'محمد ربيع','جوده','معاذ','هادي','عوض','اسامه'
+];
+
+const sel = document.getElementById('name');
+const btn = document.getElementById('btn');
+const msg = document.getElementById('msg');
+
+NAMES.forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
+try { const saved = localStorage.getItem('att_name'); if (saved && NAMES.includes(saved)) sel.value = saved; } catch (e) {}
+
+function show(text, cls) { msg.className = cls; msg.textContent = text; }
+
+btn.addEventListener('click', () => {
+  if (!sel.value) { show('اختار اسمك الأول', 'err'); return; }
+  if (!navigator.geolocation) { show('الموبايل ده مش بيدعم تحديد الموقع', 'err'); return; }
+
+  btn.disabled = true;
+  show('جاري تحديد موقعك... استنى ثواني', 'wait');
+
+  navigator.geolocation.getCurrentPosition(
+    pos => send(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+    err => {
+      btn.disabled = false;
+      if (err.code === 1) show('لازم تسمح للموقع. اضغط "سماح" أو "Allow" ثم جرّب تاني. ولو مش ظاهرة: من إعدادات المتصفح اسمح للموقع بالوصول للـLocation.', 'err');
+      else if (err.code === 2) show('مش قادر أحدد موقعك. تأكد إن الـGPS شغال وجرّب تاني.', 'err');
+      else show('اتأخر تحديد الموقع. جرّب تاني.', 'err');
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
+});
+
+function send(lat, lng, acc) {
+  show('جاري التسجيل...', 'wait');
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ token: TOKEN, name: sel.value, lat: lat, lng: lng, acc: acc })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.ok) {
+      try { localStorage.setItem('att_name', sel.value); } catch (e) {}
+      const t = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      show('تم تسجيل حضورك ✅ ' + sel.value + ' (' + t + ')', 'ok');
+    } else {
+      show('حصلت مشكلة في التسجيل (' + res.error + '). صوّر الشاشة وابعتها للمسؤول.', 'err');
+    }
+    btn.disabled = false;
+  })
+  .catch(() => {
+    show('مش متأكد إن التسجيل تم. اتأكد من النت وجرّب تاني، ولو اتكرر بلّغ المسؤول.', 'err');
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>
